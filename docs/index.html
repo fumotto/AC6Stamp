@@ -53,6 +53,7 @@
   code { font-family: "JetBrains Mono", Consolas, monospace; background: var(--panel); border: 1px solid var(--line);
          padding: 1px 6px; border-radius: 5px; font-size: .9em; }
   .note { color: var(--muted); font-size: .95rem; }
+  main a { color: var(--accent); }
   footer { padding: 32px 0 48px; color: var(--muted); font-size: .85rem; }
   footer a { color: var(--muted); }
 </style>
@@ -104,6 +105,22 @@
       <li>右側の「AC6Stamp.exe の場所」に、展開した <code>AC6Stamp.exe</code> を指定します。</li>
       <li>いつも通り録画して停止すると、AC6 Stamp が起動して解析を始めます。</li>
     </ol>
+  </section>
+
+  <section>
+    <h2>すでにアップした動画を解析する場合</h2>
+    <p>YouTube の URL を渡して直接読むことはできません（利用規約で禁止されています）。自分でアップした動画を、公式からローカルにダウンロードしてご使用ください。</p>
+    <div class="grid">
+      <div class="card">
+        <h3><a href="https://takeout.google.com/">Google Takeout</a>（おすすめ）</h3>
+        <p>「YouTube と YouTube Music」の「動画」を書き出すと、アップロードした元のファイルがそのまま手に入ります。いちばんきれいに読めます。書き出しには時間がかかります。</p>
+      </div>
+      <div class="card">
+        <h3><a href="https://studio.youtube.com/">YouTube Studio</a></h3>
+        <p>「コンテンツ」から動画の「︙」→「ダウンロード」。手早く1本だけ欲しいときに。ただし 720p か 360p に落ちるため名前が読めないことがあり、1本につき24時間で5回までです。</p>
+      </div>
+    </div>
+    <p class="note">他の人の動画は、正規の方法でファイルを取得できないため対応していません。OBS 連携を使えば、アップロードする前に一覧ができます。</p>
   </section>
 
   <section>

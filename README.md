@@ -3,7 +3,7 @@
 ARMORED CORE VI の対戦録画から、**対戦開始のタイムスタンプ**と**対戦相手の名前**を読み取り、
 YouTube のコメント欄にそのまま貼れる一覧を作る Windows 用ツールです。
 
-```
+```txt
 0:08 vs ALL MIND
 6:42 vs Ayre
 ```
@@ -25,6 +25,27 @@ ffmpeg は**同梱していません**（よく使われる配布用ビルドが
 利用者が入れた ffmpeg を `PATH` →`AC6Stamp.exe` と同じフォルダ→`imageio-ffmpeg`（開発環境）の順に探します。
 案内は `winget install Gyan.FFmpeg`。詳細は [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
 
+## OBS 連携
+
+  OBS の「ツール」→「スクリプト」→「＋」で"ac6stamp_obs.lua"ファイルを追加し、
+ 「AC6Stamp.exe の場所」を指定してください。
+
+## ローカルの動画ファイルのみ解析対象
+
+YouTube の URL からは解析できません。
+YouTube の利用規約 5.1(H) は、再生ページ・埋め込みプレーヤー・YouTube が明示的に許可した手段
+以外でのコンテンツ取得を禁止しています。
+
+アップロード済みの自分の動画を解析したい場合は、公式のダウンロード経路でファイルを取得してから
+本ツールに渡してください。
+
+| 経路 | 画質 | 制限 |
+| --- | --- | --- |
+| [Google Takeout](https://takeout.google.com/) | アップロードした元ファイルそのまま（無変換、または H264/AAC の MP4） | 書き出しに時間がかかる・チャンネル一括 |
+| [YouTube Studio](https://studio.youtube.com/) の「ダウンロード」 | **720p または 360p のみ** | 1本につき24時間で5回まで |
+
+OCR 精度の点では Takeout を推奨します。解像度が足りないと、うまく読み取れないことがあります。
+
 | ファイル | 内容 |
 | --- | --- |
 | `app.py` | 起動用 |
@@ -38,7 +59,7 @@ ffmpeg は**同梱していません**（よく使われる配布用ビルドが
 
 ## 開発
 
-```
+```bash
 pip install -r requirements.txt
 python app.py
 ```
@@ -58,7 +79,7 @@ GitHub Actions（`.github/workflows/build.yml`）が Windows 上で exe を作�
 - `main` への push … ビルドと確認のみ（Actions の Artifacts から zip を取得可）
 - `v1.0.0` のようなタグを push … Release を作成し `AC6Stamp-win64.zip` を添付
 
-```
+```bash
 git tag v1.0.0
 git push origin v1.0.0
 ```
