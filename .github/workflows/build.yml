@@ -40,6 +40,7 @@ jobs:
           pyinstaller app.py --noconfirm --windowed --onedir --name AC6Stamp
           --icon assets/icon.ico
           --collect-all tkinterdnd2
+          --exclude-module imageio_ffmpeg
           --collect-submodules winrt
           --hidden-import winrt.windows.media.ocr
           --hidden-import winrt.windows.globalization
@@ -49,7 +50,10 @@ jobs:
           --hidden-import winrt.windows.foundation.collections
 
       # ffmpeg は GPLv3 ビルドのため同梱しない（THIRD-PARTY-NOTICES.md 参照）。
-      # opencv の wheel が持ち込む FFmpeg DLL も使っていないので取り除く。
+      # imageio_ffmpeg は pyinstaller-hooks-contrib のフックが
+      # collect_data_files(..., subdir="binaries") で ffmpeg.exe を自動的に取り込むので、
+      # --collect-all を外すだけでは不十分。上の --exclude-module で止めている。
+      # opencv の wheel が持ち込む FFmpeg DLL も使っていないので、ここで取り除く。
       - name: Strip bundled ffmpeg
         shell: pwsh
         run: |
