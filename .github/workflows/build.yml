@@ -40,7 +40,6 @@ jobs:
           pyinstaller app.py --noconfirm --windowed --onedir --name AC6Stamp
           --icon assets/icon.ico
           --collect-all tkinterdnd2
-          --collect-all imageio_ffmpeg
           --collect-submodules winrt
           --hidden-import winrt.windows.media.ocr
           --hidden-import winrt.windows.globalization
@@ -49,9 +48,19 @@ jobs:
           --hidden-import winrt.windows.foundation
           --hidden-import winrt.windows.foundation.collections
 
+      # ffmpeg は GPLv3 ビルドのため同梱しない（THIRD-PARTY-NOTICES.md 参照）。
+      # opencv の wheel が持ち込む FFmpeg DLL も使っていないので取り除く。
+      - name: Strip bundled ffmpeg
+        shell: pwsh
+        run: |
+          Get-ChildItem dist\AC6Stamp -Recurse -Include "opencv_videoio_ffmpeg*.dll" | Remove-Item -Force
+          $f = Get-ChildItem dist\AC6Stamp -Recurse -Include "ffmpeg*.exe", "avcodec*.dll", "avformat*.dll"
+          if ($f) { throw "ffmpeg was bundled into the build: $($f.FullName -join ', ')" }
+
       - name: Self test (OCR and ffmpeg inside the built exe)
         shell: pwsh
         run: |
+          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) { throw "ffmpeg is not on PATH on this runner" }
           $p = Start-Process dist\AC6Stamp\AC6Stamp.exe -ArgumentList "--selftest", "selftest.txt" -Wait -PassThru
           Get-Content selftest.txt
           if ($p.ExitCode -ne 0) { throw "selftest failed" }
@@ -62,6 +71,8 @@ jobs:
         run: |
           Copy-Item obs\ac6stamp_obs.lua dist\AC6Stamp\
           Copy-Item docs\使い方.txt dist\AC6Stamp\
+          Copy-Item LICENSE dist\AC6Stamp\
+          Copy-Item THIRD-PARTY-NOTICES.md dist\AC6Stamp\
           Compress-Archive -Path dist\AC6Stamp -DestinationPath AC6Stamp-win64.zip
 
       - uses: actions/upload-artifact@v4

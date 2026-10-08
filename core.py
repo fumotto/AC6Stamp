@@ -34,17 +34,35 @@ NO_WINDOW = 0x08000000 if os.name == "nt" else 0   # ffmpegの黒い窓を出さ
 _ffmpeg = None
 
 
+FFMPEG_NOT_FOUND = (
+    "ffmpeg が見つかりません。\n\n"
+    "録画を読むには ffmpeg が必要です（ライセンスの都合で同梱していません）。\n"
+    "次のどれかで用意してください。\n\n"
+    "・コマンドプロンプトで  winget install Gyan.FFmpeg\n"
+    "・https://www.gyan.dev/ffmpeg/builds/ から入手し、\n"
+    "  ffmpeg.exe を AC6Stamp.exe と同じフォルダに置く\n"
+)
+
+
 def ffmpeg_exe():
+    """ffmpeg.exe を探す。PATH → exe と同じフォルダ → imageio-ffmpeg（開発環境）の順。"""
     global _ffmpeg
     if _ffmpeg:
         return _ffmpeg
-    try:
-        import imageio_ffmpeg
-        _ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
-    except Exception:
-        _ffmpeg = shutil.which("ffmpeg")
+    _ffmpeg = shutil.which("ffmpeg")
     if not _ffmpeg:
-        raise RuntimeError("ffmpeg が見つかりません")
+        here = Path(sys.executable if getattr(sys, "frozen", False) else __file__).parent
+        cand = here / ("ffmpeg.exe" if os.name == "nt" else "ffmpeg")
+        if cand.is_file():
+            _ffmpeg = str(cand)
+    if not _ffmpeg:
+        try:
+            import imageio_ffmpeg
+            _ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+        except Exception:
+            pass
+    if not _ffmpeg:
+        raise RuntimeError(FFMPEG_NOT_FOUND)
     return _ffmpeg
 
 

@@ -4,8 +4,8 @@ ARMORED CORE VI の対戦録画から、**対戦開始のタイムスタンプ**
 YouTube のコメント欄にそのまま貼れる一覧を作る Windows 用ツールです。
 
 ```
-0:08 vs barracuda
-6:42 vs esKen32
+0:08 vs ALL MIND
+6:42 vs Ayre
 ```
 
 - ダウンロードと使い方: GitHub Pages のページ（`https://<owner>.github.io/<repo>/`）
@@ -21,6 +21,10 @@ YouTube のコメント欄にそのまま貼れる一覧を作る Windows 用ツ
 
 自動で位置を割り出せない環境向けに、位置を手動で指定するモードもあります（画面の「読み取り位置の調整…」）。
 
+ffmpeg は**同梱していません**（よく使われる配布用ビルドが GPLv3 のため）。
+利用者が入れた ffmpeg を `PATH` →`AC6Stamp.exe` と同じフォルダ→`imageio-ffmpeg`（開発環境）の順に探します。
+案内は `winget install Gyan.FFmpeg`。詳細は [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
+
 | ファイル | 内容 |
 | --- | --- |
 | `app.py` | 起動用 |
@@ -30,6 +34,7 @@ YouTube のコメント欄にそのまま貼れる一覧を作る Windows 用ツ
 | `config.py` | 設定（`%APPDATA%\AC6Stamp\config.json`） |
 | `obs/ac6stamp_obs.lua` | OBS 連携スクリプト（録画停止で自動解析） |
 | `docs/` | GitHub Pages のダウンロードページ |
+| `THIRD-PARTY-NOTICES.md` | 同梱している第三者ソフトウェアのライセンス表示 |
 
 ## 開発
 
@@ -61,6 +66,11 @@ git push origin v1.0.0
 ダウンロードページは `docs/` を `.github/workflows/pages.yml` が GitHub Pages に公開します。
 ページのボタンは常に最新の Release の zip を指します。
 
+## ライセンス
+
+MIT License（[LICENSE](LICENSE)）。同梱物の表示は [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) です。
+
 ---
 
 非公式のファンメイドツールです。株式会社フロム・ソフトウェア、株式会社バンダイナムコエンターテインメントとは関係ありません。
+ARMORED CORE VI 関連の名称・画面・意匠の権利は両社に帰属し、MIT License は及びません。
