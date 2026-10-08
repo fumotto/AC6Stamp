@@ -8,7 +8,7 @@ YouTube のコメント欄にそのまま貼れる一覧を作る Windows 用ツ
 6:42 vs Ayre
 ```
 
-- ダウンロードと使い方: GitHub Pages のページ（`https://<owner>.github.io/<repo>/`）
+- ダウンロードと使い方: GitHub Pages のページ（`https://fumotto.github.io/AC6Stamp/`）
 - 利用者向けの説明: [docs/使い方.txt](docs/使い方.txt)
 
 ## しくみ
