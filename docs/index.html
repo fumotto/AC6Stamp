@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AC6 Stamp</title>
+<meta name="description" content="ARMORED CORE VI の対戦録画から、対戦開始タイムスタンプと対戦相手名の一覧を自動で作るツール">
+<link rel="icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1114; --panel: #171a1f; --line: #2a2f37; --text: #e6e8eb; --muted: #9aa3ad;
+    --accent: #ff9a1f; --accent-ink: #1a1203; --ok: #2fe36b;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f5f6f8; --panel: #ffffff; --line: #dde1e6; --text: #15181c; --muted: #5d6670;
+      --accent: #e07800; --accent-ink: #ffffff; --ok: #138a3e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font-family: "Noto Sans JP", "Yu Gothic UI", sans-serif; line-height: 1.75; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 16px; }
+  header { padding: 64px 0 40px; border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: 16px; }
+  .brand img { width: 64px; height: 64px; }
+  h1 { font-size: 2.2rem; margin: 0; letter-spacing: .04em; }
+  .lead { font-size: 1.1rem; color: var(--muted); margin: 16px 0 28px; }
+  .dl { display: inline-flex; align-items: center; gap: 10px; background: var(--accent); color: var(--accent-ink);
+        font-weight: 700; text-decoration: none; padding: 14px 26px; border-radius: 10px; font-size: 1.05rem; }
+  .dl:hover { filter: brightness(1.08); }
+  .meta { color: var(--muted); font-size: .9rem; margin-top: 10px; }
+  .meta a { color: var(--muted); }
+  section { padding: 40px 0; border-bottom: 1px solid var(--line); }
+  h2 { font-size: 1.3rem; margin: 0 0 16px; }
+  h2::before { content: ""; display: inline-block; width: 6px; height: 1em; background: var(--accent);
+               margin-right: 10px; vertical-align: -2px; border-radius: 2px; }
+  .sample { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 20px;
+            font-family: "JetBrains Mono", Consolas, monospace; white-space: pre; overflow-x: auto; }
+  .sample .t { color: var(--accent); }
+  ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+  ol.steps li { counter-increment: s; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+                padding: 14px 18px 14px 58px; position: relative; }
+  ol.steps li::before { content: counter(s); position: absolute; left: 16px; top: 14px; width: 28px; height: 28px;
+                        border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-weight: 700;
+                        display: grid; place-items: center; font-size: .9rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+  .card h3 { margin: 0 0 6px; font-size: 1rem; }
+  .card p { margin: 0; color: var(--muted); font-size: .95rem; }
+  code { font-family: "JetBrains Mono", Consolas, monospace; background: var(--panel); border: 1px solid var(--line);
+         padding: 1px 6px; border-radius: 5px; font-size: .9em; }
+  .note { color: var(--muted); font-size: .95rem; }
+  footer { padding: 32px 0 48px; color: var(--muted); font-size: .85rem; }
+  footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="brand"><img src="icon.png" alt=""><h1>AC6 Stamp</h1></div>
+    <p class="lead">ARMORED CORE VI の対戦録画から、<strong>対戦開始のタイムスタンプ</strong>と<strong>対戦相手の名前</strong>を自動で読み取り、YouTubeのコメント欄にそのまま貼れる一覧を作ります。</p>
+    <a class="dl" id="dl" href="#">⬇ ダウンロード（Windows 版）</a>
+    <div class="meta" id="meta">Windows 10 / 11 ・ 無料</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section>
+    <h2>できあがるもの</h2>
+    <div class="sample"><span class="t">0:08</span> vs barracuda
+<span class="t">6:42</span> vs esKen32
+<span class="t">13:15</span> vs Hawk_07</div>
+    <p class="note">YouTube のコメント欄に貼ると、時刻の部分がリンクになり、各対戦にすぐ飛べるようになります。</p>
+  </section>
+
+  <section>
+    <h2>使い方</h2>
+    <ol class="steps">
+      <li>ダウンロードした zip を展開し、<code>AC6Stamp.exe</code> を起動します。</li>
+      <li>録画ファイルをウィンドウにドラッグ&ドロップし、「解析開始」を押します。</li>
+      <li>終わったら「コピー」を押して、YouTube のコメント欄に貼り付けます。録画と同じフォルダにも <code>〜_対戦リスト.txt</code> が保存されます。</li>
+    </ol>
+    <p class="note">「自分のパイロット名」を入れておくと、相手の名前だけが一覧に出ます（空欄でも、3試合以上あれば自動で判定します）。</p>
+  </section>
+
+  <section>
+    <h2>OBS と連携する</h2>
+    <p>録画を止めると、自動で解析が始まるようにできます。アップロード前に一覧ができあがります。</p>
+    <ol class="steps">
+      <li>OBS の「ツール」→「スクリプト」を開き、「＋」で zip に入っている <code>ac6stamp_obs.lua</code> を追加します。</li>
+      <li>右側の「AC6Stamp.exe の場所」に、展開した <code>AC6Stamp.exe</code> を指定します。</li>
+      <li>いつも通り録画して停止すると、AC6 Stamp が起動して解析を始めます。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>うまく読めないとき</h2>
+    <div class="grid">
+      <div class="card"><h3>読み取り位置の調整</h3><p>「読み取り位置の調整…」で録画の1コマを表示し、正しく読めるか確認できます。自動で読めない場合は、名前の位置をマウスで囲んで指定できます。</p></div>
+      <div class="card"><h3>自分の名前が相手として出る</h3><p>「自分のパイロット名」の欄に入力してください。「読み直す」のチェックは不要で、すぐに一覧が作り直されます。</p></div>
+      <div class="card"><h3>起動時に警告が出る</h3><p>署名していないアプリのため、Windows の警告が出ることがあります。「詳細情報」→「実行」で起動できます。</p></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>非公式のファンメイドツールです。株式会社フロム・ソフトウェア、株式会社バンダイナムコエンターテインメントとは関係ありません。</p>
+    <p><a id="repo" href="#">ソースコード（GitHub）</a> ・ <a id="releases" href="#">過去のバージョン</a></p>
+  </div>
+</footer>
+
+<script>
+  // ページの URL（owner.github.io/repo/）からリポジトリを割り出す
+  (function () {
+    var owner = location.hostname.split(".")[0];
+    var repo = location.pathname.split("/").filter(Boolean)[0] || (owner + ".github.io");
+    var base = "https://github.com/" + owner + "/" + repo;
+    document.getElementById("dl").href = base + "/releases/latest/download/AC6Stamp-win64.zip";
+    document.getElementById("repo").href = base;
+    document.getElementById("releases").href = base + "/releases";
+    fetch("https://api.github.com/repos/" + owner + "/" + repo + "/releases/latest")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (rel) {
+        if (!rel) return;
+        var asset = (rel.assets || []).filter(function (a) { return a.name === "AC6Stamp-win64.zip"; })[0];
+        var parts = ["最新版 " + rel.tag_name, new Date(rel.published_at).toLocaleDateString("ja-JP")];
+        if (asset) parts.push(Math.round(asset.size / 1048576) + " MB");
+        parts.push("Windows 10 / 11");
+        document.getElementById("meta").textContent = parts.join(" ・ ");
+      })
+      .catch(function () {});
+  })();
+</script>
+</body>
+</html>

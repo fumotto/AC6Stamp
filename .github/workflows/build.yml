@@ -1,0 +1,77 @@
+name: Build
+
+# main への push / PR ではビルドと動作確認だけ行い、
+# v1.0.0 のようなタグを push したときは Release を作って exe（zip）を添付する
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $v = "${{ github.ref_name }}".TrimStart("v")
+          (Get-Content config.py -Raw) -replace 'VERSION = ".*?"', "VERSION = `"$v`"" | Set-Content config.py -Encoding utf8
+
+      - name: Build exe
+        run: >
+          pyinstaller app.py --noconfirm --windowed --onedir --name AC6Stamp
+          --icon assets/icon.ico
+          --collect-all tkinterdnd2
+          --collect-all imageio_ffmpeg
+          --collect-submodules winrt
+          --hidden-import winrt.windows.media.ocr
+          --hidden-import winrt.windows.globalization
+          --hidden-import winrt.windows.graphics.imaging
+          --hidden-import winrt.windows.storage.streams
+          --hidden-import winrt.windows.foundation
+          --hidden-import winrt.windows.foundation.collections
+
+      - name: Self test (OCR and ffmpeg inside the built exe)
+        shell: pwsh
+        run: |
+          $p = Start-Process dist\AC6Stamp\AC6Stamp.exe -ArgumentList "--selftest", "selftest.txt" -Wait -PassThru
+          Get-Content selftest.txt
+          if ($p.ExitCode -ne 0) { throw "selftest failed" }
+          if (-not (Select-String -Path selftest.txt -Pattern "engine: Windows OCR" -Quiet)) { throw "Windows OCR is not used" }
+
+      - name: Package
+        shell: pwsh
+        run: |
+          Copy-Item obs\ac6stamp_obs.lua dist\AC6Stamp\
+          Copy-Item docs\使い方.txt dist\AC6Stamp\
+          Compress-Archive -Path dist\AC6Stamp -DestinationPath AC6Stamp-win64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AC6Stamp-win64
+          path: AC6Stamp-win64.zip
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: AC6Stamp-win64.zip
+          generate_release_notes: true
