@@ -18,7 +18,14 @@ import numpy as np
 import config
 from ocr import Line
 
-WORK_W = 1280               # 解析用にこの横幅へ縮小する
+# 解析用の横幅。縮小しすぎると小さい文字がつぶれてOCRが化けるので、
+# 1080p はそのまま、それより大きい動画だけここまで縮小する
+WORK_W = 1920
+# 1080p のとき何倍に拡大してOCRに渡すか（高さに応じて自動調整する）
+OCR_SCALE = 4.0
+# 自動モードでパネルの場所を探すときの倍率。画面下部をまるごと読むため、
+# 大きくしすぎると薄い模様まで拾って名前に混ざるので控えめにする
+FIND_SCALE = 0.75
 NO_WINDOW = 0x08000000 if os.name == "nt" else 0   # ffmpegの黒い窓を出さない
 
 
@@ -53,8 +60,9 @@ class VideoInfo:
 
     @property
     def work_size(self):
-        h = int(round(WORK_W * self.height / self.width / 2) * 2)
-        return WORK_W, h
+        w = int(round(min(self.width, WORK_W) / 2) * 2)
+        h = int(round(w * self.height / self.width / 2) * 2)
+        return w, h
 
 
 def probe(path) -> VideoInfo:
@@ -110,14 +118,33 @@ def similar(a, b, th=0.75):
     return bool(a) and bool(b) and SequenceMatcher(None, a, b).ratio() >= th
 
 
+# OCRが読み違えやすい字を寄せる。見るのが UNIT / ALPHA / BETA だけなので強めでよい
+# （'UNIT' はよく 'LJ NーT' や '凵NーT' と読まれる）
+_FOLD = str.maketrans({"凵": "U", "日": "B", "口": "O", "ロ": "O",
+                       "ー": "I", "一": "I", "|": "I", "l": "I", "!": "I", "0": "O"})
+
+
+def label_text(text):
+    """ラベルのOCR結果をA〜Zだけに整える（'LJ NーT ALPHA' -> 'UNITALPHA'）"""
+    return re.sub(r"[^A-Z]", "", text.translate(_FOLD).upper().replace("LJ", "U"))
+
+
+def looks_like_unit(text):
+    """パネル上の「UNIT」かどうか"""
+    t = label_text(text)
+    return t == "UNIT" or (len(t) <= 6 and SequenceMatcher(None, t, "UNIT").ratio() >= 0.6)
+
+
 def side_of_label(text, strict=False):
     """「UNIT ALPHA」「BETA」などのOCR結果からどちら側かを判定（1〜2文字の読み違いは許容）"""
-    t = re.sub(r"[^A-Z0-9]", "", text.upper()).replace("UNIT", "")
-    if not t or len(t) > 7:
+    t = label_text(text).replace("UNIT", "")
+    if not t:
         return None
     for side in ("ALPHA", "BETA"):
         if side in t:
             return side
+    if len(t) > 7:
+        return None
     sa = SequenceMatcher(None, t, "ALPHA").ratio()
     sb = SequenceMatcher(None, t, "BETA").ratio()
     th = 0.75 if strict else 0.6
@@ -151,6 +178,26 @@ def _union(lines):
             max(l.x1 for l in lines), max(l.y1 for l in lines))
 
 
+# 同じ行でもこれ以上離れていれば別の欄とみなす（字高に対する倍率）。
+# 実測では名前欄の断片は離れず、戦績欄など別の欄は2.3倍以上あいている
+COL_GAP = 1.5
+
+
+def _same_column(row):
+    """1つの欄だけを残す。枠が広すぎて右の戦績欄まで入ったときに名前と混ざらないように"""
+    cols = [[row[0]]]
+    for prev, ln in zip(row, row[1:]):
+        if ln.x0 - prev.x1 > COL_GAP * max(ln.h, prev.h, 1):
+            cols.append([ln])
+        else:
+            cols[-1].append(ln)
+    # 左端はアイコン由来の1文字ゴミのことがあるので、中身のある最初の欄を採る
+    for c in cols:
+        if len("".join(l.text for l in c)) >= 2:
+            return c
+    return cols[0]
+
+
 def _merge_rows(lines):
     """同じ高さにある断片を1行にまとめ、上から順に並べる"""
     rows = []
@@ -162,6 +209,7 @@ def _merge_rows(lines):
     out = []
     for r in rows:
         r.sort(key=lambda l: l.x0)
+        r = _same_column(r)
         text = clean_line(" ".join(l.text for l in r))
         if len(text) >= 2:
             out.append((text, r))
@@ -188,26 +236,28 @@ def parse_panels(lines):
             continue
         h = max(lab.h, 4)
         # ラベルの「UNIT」（同じ行か、すぐ上の行）
-        has_unit = "UNIT" in lab.text.upper().replace(" ", "")
+        has_unit = "UNIT" in label_text(lab.text)
         unit_top = lab.y0 - 1.3 * h
         for u in lines:
             if u is lab:
                 continue
-            if similar(u.text, "UNIT", 0.6) and lab.y0 - 2.5 * h <= u.y0 <= lab.y0 \
+            if looks_like_unit(u.text) and lab.y0 - 2.5 * h <= u.y0 <= lab.y0 \
                     and abs((u.x0 + u.x1) / 2 - (lab.x0 + lab.x1) / 2) < (lab.x1 - lab.x0):
                 has_unit = True
                 unit_top = u.y0
-        if not has_unit:
-            continue
         top, bottom = unit_top - 0.6 * h, lab.y1 + 0.6 * h
         if side == "BETA":      # 左下のパネル: 名前はラベルの右側
             xmin, xmax = lab.x1 + 1.5 * h, lab.x1 + 30 * h
         else:                   # 右下のパネル: 名前はラベルの左側
             xmin, xmax = lab.x0 - 30 * h, lab.x0 - 0.5 * h
         cand = [l for l in lines
-                if l is not lab and not similar(l.text, "UNIT", 0.6)
+                if l is not lab and not looks_like_unit(l.text)
                 and l.cy >= top and l.cy <= bottom and l.x0 >= xmin and l.x1 <= xmax]
-        p = _panel_from_rows(side, _merge_rows(cand), (lab.x0, unit_top, lab.x1, lab.y1))
+        rows = _merge_rows(cand)
+        # 「UNIT」が読めなかったときは、名前と機体名が2行そろっていれば本物とみなす
+        if not has_unit and len(rows) < 2:
+            continue
+        p = _panel_from_rows(side, rows, (lab.x0, unit_top, lab.x1, lab.y1))
         if p:
             panels.append(p)
     return panels
@@ -230,10 +280,17 @@ class Detector:
         self.cfg = cfg
         self.ocr = engine
 
+    def _scale(self, frame):
+        """1080p のとき OCR_SCALE 倍になる拡大率。映像が小さいほど大きく引き伸ばす"""
+        return max(1.0, OCR_SCALE * 1080 / max(frame.shape[0], 1))
+
     def _ocr(self, img, k):
         k = min(k, self.ocr.max_dim / max(img.shape[:2]))
-        big = cv2.resize(img, None, fx=k, fy=k, interpolation=cv2.INTER_CUBIC) if k > 1 else img
-        return [l.scaled(1 / k) for l in self.ocr.recognize(big)] if k > 1 else self.ocr.recognize(big)
+        if k <= 1:
+            return self.ocr.recognize(img)
+        # 文字の輪郭を保つため LANCZOS4（CUBIC より誤読が減ることを実測で確認）
+        big = cv2.resize(img, None, fx=k, fy=k, interpolation=cv2.INTER_LANCZOS4)
+        return [l.scaled(1 / k) for l in self.ocr.recognize(big)]
 
     def detect(self, frame):
         if self.cfg.get("mode") == "manual":
@@ -244,14 +301,27 @@ class Detector:
         h = frame.shape[0]
         y0, y1 = int(self.cfg["band"][0] * h), int(self.cfg["band"][1] * h)
         w = frame.shape[1]
-        # パネルは左下と右下にあるので、左右の半分ずつを大きく拡大して読む
+        # パネルは左下と右下にあるので、左右の半分ずつを拡大して読む
         panels = {}
         for xa, xb in ((0, int(w * 0.55)), (int(w * 0.45), w)):
             part = frame[y0:y1, xa:xb]
-            lines = [l.scaled(1, xa, y0) for l in self._ocr(part, 3.0)]
+            lines = [l.scaled(1, xa, y0) for l in self._ocr(part, self._scale(frame) * FIND_SCALE)]
             for p in parse_panels(lines):
                 panels.setdefault(p.side, p)
-        return list(panels.values())
+        return [self._reread(frame, p) for p in panels.values()]
+
+    def _reread(self, frame, panel):
+        """見つかった名前のところだけを狭く切り直し、手動モードと同じ倍率で読み直す"""
+        h, w = frame.shape[:2]
+        x0, y0, x1, y1 = panel.info_box
+        m = 0.3 * max(y1 - y0, 1)
+        box = (max(0, int(x0 - m)), max(0, int(y0 - m)),
+               min(w, int(x1 + m)), min(h, int(y1 + m)))
+        crop = frame[box[1]:box[3], box[0]:box[2]]
+        if not crop.size:
+            return panel
+        lines = [l.scaled(1, box[0], box[1]) for l in self._ocr(crop, self._scale(frame))]
+        return _panel_from_rows(panel.side, _merge_rows(lines), panel.label_box) or panel
 
     def _detect_manual(self, frame, skip_gate=False):
         panels = []
@@ -260,14 +330,14 @@ class Detector:
             lab = frame[ly0:ly1, lx0:lx1]
             if lab.size == 0 or (not skip_gate and not looks_like_panel(lab)):
                 continue
-            text = " ".join(l.text for l in self._ocr(lab, 3.0))
+            text = " ".join(l.text for l in self._ocr(lab, self._scale(frame)))
             if side_of_label(text) != side:
                 continue
             ix0, iy0, ix1, iy1 = _px_box(frame, reg["info"])
             info = frame[iy0:iy1, ix0:ix1]
             if info.size == 0:
                 continue
-            lines = [l.scaled(1, ix0, iy0) for l in self._ocr(info, 3.0)]
+            lines = [l.scaled(1, ix0, iy0) for l in self._ocr(info, self._scale(frame))]
             p = _panel_from_rows(side, _merge_rows(lines), (lx0, ly0, lx1, ly1))
             if p:
                 p.info_box = (ix0, iy0, ix1, iy1)
@@ -282,17 +352,21 @@ class Detector:
             for kind in ("label", "info"):
                 x0, y0, x1, y1 = _px_box(frame, reg[kind])
                 img = frame[y0:y1, x0:x1]
-                res[kind] = [l.text for l in self._ocr(img, 3.0)] if img.size else []
+                res[kind] = [l.text for l in self._ocr(img, self._scale(frame))] if img.size else []
             out[side] = res
         return out
 
 
 # ================= 1本の動画を解析 =================
 
+# 解析方法を変えたら上げる（古いキャッシュを読み直させる）
+SCAN_VERSION = 2
+
+
 def cache_key(path, cfg):
     st = Path(path).stat()
     basis = {"p": str(Path(path).resolve()), "s": st.st_size, "m": int(st.st_mtime),
-             "mode": cfg["mode"], "fps": cfg["fps"],
+             "v": SCAN_VERSION, "mode": cfg["mode"], "fps": cfg["fps"],
              "pos": cfg["band"] if cfg["mode"] == "auto" else cfg["regions"]}
     return hashlib.sha1(json.dumps(basis, sort_keys=True).encode()).hexdigest()[:16]
 
@@ -392,10 +466,22 @@ def guess_me(all_groups):
     return []
 
 
+def own_side(group, me):
+    """その試合で自分がいた側（ALPHA/BETA）。分からなければ None"""
+    for side in ("ALPHA", "BETA"):
+        names = [d["pilot"] for d in group if d["side"] == side]
+        if any(similar(n, m) for n in names for m in me):
+            return side
+    return None
+
+
 def build_comment(dets, cfg, me):
     lines = []
     for g in group_matches(dets, cfg["group_gap"]):
-        cands = [rep for rep, _ in cluster([d["pilot"] for d in g])
+        # 自分の側が分かれば反対側がそのまま相手。名前が化けても取り違えない
+        own = own_side(g, me)
+        pool = [d for d in g if d["side"] != own] if own else g
+        cands = [rep for rep, _ in cluster([d["pilot"] for d in pool])
                  if not any(similar(rep, m) for m in me)]
         name = cands[0] if cands else "（読み取れず）"
         lines.append(f"{fmt_time(g[0]['t'] - cfg['lead_seconds'])} vs {name}")

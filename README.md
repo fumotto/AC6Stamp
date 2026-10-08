@@ -22,7 +22,7 @@ YouTube のコメント欄にそのまま貼れる一覧を作る Windows 用ツ
 自動で位置を割り出せない環境向けに、位置を手動で指定するモードもあります（画面の「読み取り位置の調整…」）。
 
 | ファイル | 内容 |
-|---|---|
+| --- | --- |
 | `app.py` | 起動用 |
 | `gui.py` | メイン画面・読み取り位置の調整画面・`--selftest` |
 | `core.py` | 動画の読み込み、パネル検出、集計 |
@@ -60,8 +60,6 @@ git push origin v1.0.0
 
 ダウンロードページは `docs/` を `.github/workflows/pages.yml` が GitHub Pages に公開します。
 ページのボタンは常に最新の Release の zip を指します。
-
-初回のみ、リポジトリの Settings → Pages → Source を「GitHub Actions」にしてください。
 
 ---
 

@@ -33,13 +33,27 @@ class Line:
         return Line(self.text, self.x0 * k + dx, self.y0 * k + dy, self.x1 * k + dx, self.y1 * k + dy)
 
 
+# 本当の空白か、OCRが1語を割っただけかの境目。
+# 実測では本物の空白が字高の0.39〜0.78倍、誤分割は0.20倍以下で分かれる
+SPACE_GAP = 0.30
+
+
 def _join_words(words):
-    """英数字同士の間だけ空白を入れて単語をつなぐ（日本語は詰める）"""
+    """単語をつないで1行にする。
+
+    英数字どうしでも、字の間隔が狭ければ空白を入れない。
+    Windows OCR は小さい文字で不自然な割り方をすることがあり、そのまま空白を入れると名前が変わってしまうため。
+    """
     out = ""
+    prev = None
     for w in words:
-        if out and out[-1].isascii() and w[:1].isascii():
-            out += " "
-        out += w
+        r = w.bounding_rect
+        if out and out[-1].isascii() and w.text[:1].isascii():
+            gap = r.x - (prev.x + prev.width)
+            if gap > SPACE_GAP * max(prev.height, r.height, 1):
+                out += " "
+        out += w.text
+        prev = r
     return out
 
 
@@ -96,7 +110,7 @@ class WindowsOcr:
             y0 = min(r.y for r in rects)
             x1 = max(r.x + r.width for r in rects)
             y1 = max(r.y + r.height for r in rects)
-            text = _join_words([wd.text for wd in words])
+            text = _join_words(words)
             lines.append(Line(text, x0 / k, y0 / k, x1 / k, y1 / k))
         return lines
 
